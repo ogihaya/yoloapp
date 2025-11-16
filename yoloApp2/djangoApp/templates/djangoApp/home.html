@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>YOLO物体検出アプリ | ホーム</title>
+        <style>
+            :root {
+                color-scheme: dark;
+                --bg: #050912;
+                --card: rgba(18, 25, 43, 0.85);
+                --accent: #06b6d4;
+                --accent-soft: rgba(6, 182, 212, 0.2);
+                --text: #f8fafc;
+                --muted: #cbd5f5;
+                --train: linear-gradient(135deg, #1d4ed8, #3b82f6);
+                --val: linear-gradient(135deg, #7c3aed, #c084fc);
+                --inference: linear-gradient(135deg, #ec4899, #f97316);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: "Noto Sans JP", "Hiragino Sans", system-ui, -apple-system,
+                    BlinkMacSystemFont, sans-serif;
+                background: radial-gradient(circle at top, #111936, var(--bg) 55%);
+                color: var(--text);
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+            }
+
+            header {
+                padding: 3.5rem 1.5rem 1rem;
+                text-align: center;
+            }
+
+            .hero {
+                max-width: 960px;
+                margin: 0 auto;
+            }
+
+            .tagline {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                font-size: 0.95rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--accent);
+                background: var(--accent-soft);
+                padding: 0.35rem 0.9rem;
+                border-radius: 999px;
+            }
+
+            h1 {
+                margin: 0.8rem 0 0.5rem;
+                font-size: clamp(2rem, 4vw, 3rem);
+            }
+
+            .hero p {
+                margin: 0 auto;
+                max-width: 720px;
+                color: var(--muted);
+                font-size: 1.05rem;
+                line-height: 1.7;
+            }
+
+            main {
+                width: min(1100px, 100%);
+                margin: 0 auto 2rem;
+                padding: 0 1.5rem 3rem;
+                display: grid;
+                gap: 2rem;
+            }
+
+            section {
+                background: var(--card);
+                border: 1px solid rgba(148, 163, 184, 0.2);
+                border-radius: 1.25rem;
+                padding: 1.8rem;
+                backdrop-filter: blur(14px);
+                box-shadow: 0 25px 80px rgba(15, 23, 42, 0.45);
+            }
+
+            section h2 {
+                margin-top: 0;
+                font-size: 1.3rem;
+            }
+
+            .card-grid {
+                margin-top: 1.5rem;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 1.5rem;
+            }
+
+            .action-card {
+                position: relative;
+                padding: 1.5rem;
+                border-radius: 1.1rem;
+                text-decoration: none;
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                min-height: 200px;
+                overflow: hidden;
+                transition: transform 0.25s ease, border 0.25s ease;
+            }
+
+            .action-card::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                opacity: 0.65;
+                background: var(--train);
+                mix-blend-mode: screen;
+                transition: opacity 0.3s ease;
+            }
+
+            .action-card:nth-child(2)::before {
+                background: var(--val);
+            }
+
+            .action-card:nth-child(3)::before {
+                background: var(--inference);
+            }
+
+            .action-card:hover {
+                transform: translateY(-6px);
+                border-color: rgba(255, 255, 255, 0.35);
+            }
+
+            .action-card > * {
+                position: relative;
+                z-index: 1;
+            }
+
+            .action-card h3 {
+                margin: 0;
+                font-size: 1.35rem;
+            }
+
+            .action-card p {
+                margin: 0.8rem 0 1rem;
+                color: #e2e8f0;
+                line-height: 1.6;
+            }
+
+            .action-card span {
+                font-size: 0.92rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+            }
+
+            .workflow-list {
+                margin: 1.5rem 0 0;
+                display: grid;
+                gap: 1rem;
+                counter-reset: workflow;
+            }
+
+            .workflow-list li {
+                list-style: none;
+                padding: 1rem 1rem 1rem 3.5rem;
+                border-radius: 0.9rem;
+                background: rgba(15, 23, 42, 0.9);
+                border: 1px solid rgba(148, 163, 184, 0.2);
+                position: relative;
+            }
+
+            .workflow-list li::before {
+                counter-increment: workflow;
+                content: counter(workflow);
+                position: absolute;
+                left: 1rem;
+                top: 50%;
+                transform: translateY(-50%);
+                height: 2.2rem;
+                width: 2.2rem;
+                border-radius: 50%;
+                background: rgba(94, 234, 212, 0.15);
+                border: 1px solid rgba(94, 234, 212, 0.7);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+            }
+
+            .workflow-list strong {
+                display: block;
+                margin-bottom: 0.35rem;
+                color: #e0f2fe;
+            }
+
+            footer {
+                text-align: center;
+                color: var(--muted);
+                font-size: 0.9rem;
+                padding-bottom: 2rem;
+            }
+
+            @media (max-width: 640px) {
+                section {
+                    padding: 1.5rem;
+                }
+
+                .workflow-list li {
+                    padding-left: 3rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="hero">
+                <span class="tagline">YOLO Annotation Suite</span>
+                <h1>YOLO物体検出アプリケーション</h1>
+                <p>
+                    アノテーションから推論までを一気通貫で管理するためのワークスペースです。
+                    下のアクションから今すぐ作業を開始できます。
+                </p>
+            </div>
+        </header>
+        <main>
+            <section aria-label="主要操作">
+                <h2>やりたい作業を選択</h2>
+                <div class="card-grid">
+                    <a class="action-card" href="{% url 'train' %}">
+                        <h3>Train用アノテーション</h3>
+                        <p>
+                            学習用データセットの画像をまとめて取り込み、矩形アノテーションを作成します。
+                            クラス設定や色分けのルールもここから管理します。
+                        </p>
+                        <span>→ Trainデータを整備</span>
+                    </a>
+                    <a class="action-card" href="{% url 'val' %}">
+                        <h3>Val用アノテーション</h3>
+                        <p>
+                            検証用データを精度評価のためにマークアップ。画面レイアウトはTrainと共通なので迷わず操作できます。
+                        </p>
+                        <span>→ Valデータを確認</span>
+                    </a>
+                    <a class="action-card" href="{% url 'inference' %}">
+                        <h3>推論実行</h3>
+                        <p>
+                            Colabで学習したYOLOモデルを読み込み、新規画像に対して推論を実行。検出結果を即時に可視化します。
+                        </p>
+                        <span>→ モデルで推論</span>
+                    </a>
+                </div>
+            </section>
+            <section aria-label="ワークフローメモ">
+                <h2>ワークフローの流れ</h2>
+                <ul class="workflow-list">
+                    <li>
+                        <strong>データを準備</strong>
+                        画像をTrain/Valそれぞれの画面でインポートし、必要なクラスを登録・整理します。
+                    </li>
+                    <li>
+                        <strong>アノテーションを実施</strong>
+                        矩形ツールで対象物をマーキングし、選択中のクラスを紐付けてYOLO形式で保存します。
+                    </li>
+                    <li>
+                        <strong>Colabで学習→モデルを再インポート</strong>
+                        エクスポートしたデータセットで学習した.ptファイルをアプリに再登録し、推論画面で確認します。
+                    </li>
+                </ul>
+            </section>
+        </main>
+        <footer>© {% now "Y" %} YOLO Annotation Workspace</footer>
+    </body>
+</html>
