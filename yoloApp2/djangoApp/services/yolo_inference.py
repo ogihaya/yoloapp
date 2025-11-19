@@ -45,8 +45,10 @@ class InferenceSettings:
     min_confidence: float = 0.25
     min_iou: float = 0.45
     max_bbox: int = 300
+    num_workers: int = 4
+    class_names: Optional[List[str]] = None
 
-    def as_dict(self) -> Dict[str, float]:
+    def as_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
 
@@ -177,7 +179,7 @@ class YoloV9InferenceEngine:
         self._cfg = cfg
         self._device = self._select_device(torch)
         class_num = getattr(cfg.dataset, "class_num", len(getattr(cfg.dataset, "class_list", [])))
-        self._model = self._create_model(cfg.model, class_num=class_num).to(self._device)
+        self._model = self._create_model(cfg.model, weight_path=False, class_num=class_num).to(self._device)
         self._model.eval()
         self._class_names = list(getattr(cfg.dataset, "class_list", []))
         self._bootstrapped = True
@@ -203,6 +205,13 @@ class YoloV9InferenceEngine:
         if not images:
             raise YoloInferenceError("推論対象の画像がありません。")
         torch = self._torch
+        data_cfg = getattr(getattr(self._cfg, "task", None), "data", None)
+        if data_cfg is not None:
+            try:
+                data_cfg.num_workers = settings.num_workers
+            except Exception:
+                pass
+        active_class_names = settings.class_names or self._class_names or []
         converter = self._create_converter(
             getattr(self._cfg.model, "name", "v9-s"),
             self._model,
@@ -234,8 +243,8 @@ class YoloV9InferenceEngine:
             elapsed_ms = (time.perf_counter() - start) * 1000
             total_time_ms += elapsed_ms
 
-            parsed = self._parse_detections(detections, pil_image.width, pil_image.height)
-            annotated = self._draw_bboxes(pil_image, detections, idx2label=self._class_names)
+            parsed = self._parse_detections(detections, pil_image.width, pil_image.height, active_class_names)
+            annotated = self._draw_bboxes(pil_image, detections, idx2label=active_class_names)
             encoded_image = self._encode_image(annotated)
             results.append(
                 {
@@ -250,9 +259,10 @@ class YoloV9InferenceEngine:
                 }
             )
 
+        self._class_names = active_class_names or self._class_names
         return {"results": results, "total_time_ms": round(total_time_ms, 2)}
 
-    def _parse_detections(self, detections, width: int, height: int) -> List[Dict[str, Any]]:
+    def _parse_detections(self, detections, width: int, height: int, class_names: List[str]) -> List[Dict[str, Any]]:
         torch = self._torch
         if isinstance(detections, list):
             tensor = detections[0] if detections else torch.zeros((0, 6), device=self._device)
@@ -281,7 +291,7 @@ class YoloV9InferenceEngine:
             parsed.append(
                 {
                     "class_id": cls_id,
-                    "class_name": self._class_names[cls_id] if cls_id < len(self._class_names) else f"class_{cls_id}",
+                    "class_name": class_names[cls_id] if cls_id < len(class_names) else f"class_{cls_id}",
                     "confidence": float(det[5]),
                     "bbox": bbox,
                 }

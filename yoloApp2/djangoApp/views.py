@@ -173,6 +173,19 @@ def _parse_int(value: Optional[str], default: int, *, minimum: int, maximum: int
     return max(minimum, min(maximum, number))
 
 
+def _parse_class_names(raw: Optional[str]) -> Optional[List[str]]:
+    if not raw:
+        return None
+    parsed_names: List[str] = []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            parsed_names = [str(item).strip() for item in data if str(item).strip()]
+    except json.JSONDecodeError:
+        parsed_names = [line.strip() for line in raw.splitlines() if line.strip()]
+    return parsed_names or None
+
+
 def _load_image_metadata(raw: Optional[str]) -> List[Dict[str, str]]:
     if not raw:
         return []
@@ -209,11 +222,15 @@ def _build_inference_settings(post_data) -> InferenceSettings:
     min_confidence = _parse_float(post_data.get("min_confidence"), 0.25, minimum=0.0, maximum=1.0)
     min_iou = _parse_float(post_data.get("min_iou"), 0.45, minimum=0.0, maximum=1.0)
     max_bbox = _parse_int(post_data.get("max_bbox"), 300, minimum=1, maximum=2000)
+    num_workers = _parse_int(post_data.get("num_workers"), 4, minimum=0, maximum=128)
+    class_names = _parse_class_names(post_data.get("class_names"))
     return InferenceSettings(
         img_size=img_size,
         min_confidence=min_confidence,
         min_iou=min_iou,
         max_bbox=max_bbox,
+        num_workers=num_workers,
+        class_names=class_names,
     )
 
 
@@ -268,7 +285,7 @@ def run_inference(request):
     response_payload = {
         "results": results,
         "device": engine.device_label,
-        "class_names": engine.class_names,
+        "class_names": settings.class_names or engine.class_names,
         "settings": settings.as_dict(),
         "stats": {
             "total_images": len(results),
