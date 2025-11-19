@@ -3,6 +3,7 @@ import hashlib
 import importlib
 import io
 import logging
+import os
 import sys
 import threading
 import time
@@ -65,6 +66,7 @@ class YoloV9InferenceEngine:
         self._torch = None
         self._compose = None
         self._initialize = None
+        self._initialize_config_dir = None
         self._AugmentationComposer = None
         self._PostProcess = None
         self._create_converter = None
@@ -128,6 +130,7 @@ class YoloV9InferenceEngine:
         hydra_mod = self._safe_import("hydra", "hydra-core が見つかりません。`pip install hydra-core omegaconf` を実行してください。")
         compose = getattr(hydra_mod, "compose", None)
         initialize = getattr(hydra_mod, "initialize", None)
+        initialize_config_dir = getattr(hydra_mod, "initialize_config_dir", None)
         if compose is None or initialize is None:
             raise MissingDependencyError("hydra-core のバージョンが古いため compose/initialize を利用できません。")
 
@@ -148,6 +151,7 @@ class YoloV9InferenceEngine:
         self._torch = torch
         self._compose = compose
         self._initialize = initialize
+        self._initialize_config_dir = initialize_config_dir
         self._NMSConfig = NMSConfig
         self._AugmentationComposer = getattr(yolo_pkg, "AugmentationComposer")
         self._PostProcess = getattr(yolo_pkg, "PostProcess")
@@ -159,8 +163,15 @@ class YoloV9InferenceEngine:
         if not config_dir.exists():
             raise MissingDependencyError(f"YOLOの設定ディレクトリが見つかりません: {config_dir}")
 
-        initialize_kwargs: Dict[str, Any] = {"config_path": str(config_dir), "version_base": None, "job_name": "django_inference"}
-        with self._initialize(**initialize_kwargs):
+        init_kwargs: Dict[str, Any] = {"version_base": None, "job_name": "django_inference"}
+        if self._initialize_config_dir:
+            hydra_context = self._initialize_config_dir(config_dir=str(config_dir), **init_kwargs)
+        else:
+            relative_config = os.path.relpath(config_dir, Path.cwd())
+            config_path = Path(relative_config).as_posix()
+            hydra_context = self._initialize(config_path=config_path, **init_kwargs)
+
+        with hydra_context:
             cfg = self._compose(config_name="config", overrides=["task=inference", "model=v9-s"])
 
         self._cfg = cfg
