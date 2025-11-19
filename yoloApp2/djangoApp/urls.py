@@ -9,4 +9,5 @@ urlpatterns = [
     path('val/', views.val, name='val'),  # val画面（/val/）
     path('val/export/', views.export_val_zip, name='export_val_zip'),  # val.zipエクスポート
     path('inference/', views.inference, name='inference'),  # inference画面（/inference/）
+    path('inference/run/', views.run_inference, name='run_inference'),  # 推論API
 ]

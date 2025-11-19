@@ -2,13 +2,27 @@ import base64
 import binascii
 import io
 import json
+import logging
 import zipfile
 from pathlib import Path
+from typing import Dict, List, Optional
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+
+from .services.yolo_inference import (
+    ImageDecodeError,
+    ImagePayload,
+    InferenceSettings,
+    MissingDependencyError,
+    ModelLoadError,
+    YoloInferenceError,
+    get_engine,
+)
+
+logger = logging.getLogger(__name__)
 
 # ホーム画面のビュー関数
 def home(request):
@@ -141,3 +155,125 @@ def export_train_zip(request):
 def export_val_zip(request):
     """Valデータセットをzipとして出力する。"""
     return _export_dataset_zip(request, "val")
+
+
+def _parse_float(value: Optional[str], default: float, *, minimum: float, maximum: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, number))
+
+
+def _parse_int(value: Optional[str], default: int, *, minimum: int, maximum: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(maximum, number))
+
+
+def _load_image_metadata(raw: Optional[str]) -> List[Dict[str, str]]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(parsed, list):
+        return [item for item in parsed if isinstance(item, dict)]
+    return []
+
+
+def _build_image_payloads(files, metadata: List[Dict[str, str]]) -> List[ImagePayload]:
+    payloads: List[ImagePayload] = []
+    for index, uploaded in enumerate(files):
+        meta = metadata[index] if index < len(metadata) else {}
+        image_id = str(meta.get("id") or meta.get("clientId") or index)
+        display_name = meta.get("name") or uploaded.name or f"inference_{index + 1}"
+        try:
+            uploaded.seek(0)
+            data = uploaded.read()
+        except OSError as exc:
+            raise ImageDecodeError(f"画像 {display_name} の読み込みに失敗しました: {exc}") from exc
+        payloads.append(ImagePayload(id=image_id, name=display_name, data=data))
+    return payloads
+
+
+def _build_inference_settings(post_data) -> InferenceSettings:
+    img_size = _parse_int(post_data.get("img_size"), 640, minimum=32, maximum=2048)
+    # YOLOは32の倍数が扱いやすいため丸める
+    img_size -= img_size % 32
+    if img_size < 32:
+        img_size = 32
+    min_confidence = _parse_float(post_data.get("min_confidence"), 0.25, minimum=0.0, maximum=1.0)
+    min_iou = _parse_float(post_data.get("min_iou"), 0.45, minimum=0.0, maximum=1.0)
+    max_bbox = _parse_int(post_data.get("max_bbox"), 300, minimum=1, maximum=2000)
+    return InferenceSettings(
+        img_size=img_size,
+        min_confidence=min_confidence,
+        min_iou=min_iou,
+        max_bbox=max_bbox,
+    )
+
+
+@csrf_exempt
+@require_POST
+def run_inference(request):
+    """YOLOv9の推論を同期実行しJSONを返却する。"""
+    model_file = request.FILES.get("model")
+    if not model_file:
+        return JsonResponse({"error": "モデルファイル(.pt)をアップロードしてください。"}, status=400)
+
+    image_files = request.FILES.getlist("images")
+    if not image_files:
+        return JsonResponse({"error": "推論対象の画像を1枚以上追加してください。"}, status=400)
+
+    metadata = _load_image_metadata(request.POST.get("image_metadata", ""))
+    try:
+        image_payloads = _build_image_payloads(image_files, metadata)
+    except ImageDecodeError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    try:
+        model_file.seek(0)
+    except OSError:
+        pass
+    model_bytes = model_file.read()
+    settings = _build_inference_settings(request.POST)
+
+    engine = get_engine()
+    try:
+        inference_payload = engine.run(
+            model_bytes=model_bytes,
+            settings=settings,
+            images=image_payloads,
+            model_label=model_file.name or "uploaded.pt",
+        )
+    except MissingDependencyError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    except ImageDecodeError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except ModelLoadError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    except YoloInferenceError as exc:
+        logger.exception("YOLO推論でエラーが発生しました")
+        return JsonResponse({"error": str(exc)}, status=500)
+    except Exception as exc:  # pragma: no cover - safety net
+        logger.exception("予期せぬ推論エラー")
+        return JsonResponse({"error": "推論処理で予期せぬエラーが発生しました。"}, status=500)
+
+    results = inference_payload.get("results", [])
+    total_detections = sum(item.get("num_detections", 0) for item in results)
+    response_payload = {
+        "results": results,
+        "device": engine.device_label,
+        "class_names": engine.class_names,
+        "settings": settings.as_dict(),
+        "stats": {
+            "total_images": len(results),
+            "total_detections": total_detections,
+            "total_time_ms": inference_payload.get("total_time_ms", 0.0),
+        },
+    }
+    return JsonResponse(response_payload)
