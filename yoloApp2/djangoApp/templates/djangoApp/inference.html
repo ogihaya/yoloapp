@@ -1,10 +1,790 @@
 <!DOCTYPE html>
 <html lang="ja">
     <head>
-        <meta charset="UTF-8">
-        <title>推論実行画面</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>推論実行ワークスペース</title>
+        <style>
+            :root {
+                color-scheme: dark;
+                --bg: radial-gradient(circle at top, #050816, #020411 65%);
+                --panel: rgba(11, 15, 31, 0.92);
+                --card: rgba(17, 23, 46, 0.85);
+                --muted: #cbd5f5;
+                --text: #f8fafc;
+                --accent: #22d3ee;
+                --accent-soft: rgba(34, 211, 238, 0.12);
+                --border: rgba(148, 163, 184, 0.25);
+                --danger: #fb7185;
+                --warning: #fcd34d;
+                --success: #34d399;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: "Noto Sans JP", "Hiragino Sans", system-ui, -apple-system, sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                padding-bottom: 2rem;
+            }
+
+            header {
+                padding: 2.5rem 2rem 1.5rem;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1rem;
+                align-items: flex-end;
+                justify-content: space-between;
+            }
+
+            header h1 {
+                margin: 0.3rem 0 0;
+                font-size: clamp(1.8rem, 4vw, 2.6rem);
+            }
+
+            header p {
+                margin: 0.2rem 0 0;
+                color: var(--muted);
+                max-width: 640px;
+                line-height: 1.6;
+            }
+
+            header nav a {
+                color: var(--muted);
+                text-decoration: none;
+            }
+
+            .tagline {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                letter-spacing: 0.08em;
+                font-size: 0.9rem;
+                color: var(--accent);
+                padding: 0.25rem 0.8rem;
+                border: 1px solid rgba(34, 211, 238, 0.4);
+                border-radius: 999px;
+                background: rgba(34, 211, 238, 0.1);
+                text-transform: uppercase;
+            }
+
+            .layout {
+                display: grid;
+                grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+                gap: 1.5rem;
+                padding: 0 2rem;
+            }
+
+            .panel {
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 1.2rem;
+                padding: 1.5rem;
+                box-shadow: 0 30px 80px rgba(3, 7, 18, 0.55);
+                backdrop-filter: blur(18px);
+            }
+
+            .panel h2 {
+                margin: 0;
+                font-size: 1.2rem;
+            }
+
+            .panel + .panel {
+                margin-top: 1.5rem;
+            }
+
+            .panel small {
+                color: var(--muted);
+            }
+
+            .control-stack {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .status-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.3rem;
+                padding: 0.25rem 0.7rem;
+                border-radius: 999px;
+                font-size: 0.85rem;
+                color: var(--text);
+            }
+
+            .status-idle {
+                background: rgba(148, 163, 184, 0.2);
+            }
+
+            .status-ready {
+                background: rgba(52, 211, 153, 0.2);
+                color: var(--success);
+            }
+
+            .dropzone {
+                border: 1px dashed var(--border);
+                border-radius: 1rem;
+                padding: 1.5rem;
+                text-align: center;
+                margin-top: 1rem;
+                background: rgba(2, 6, 23, 0.4);
+                transition: border 0.2s ease, background 0.2s ease;
+            }
+
+            .dropzone:hover,
+            .dropzone.is-dragover {
+                border-color: var(--accent);
+                background: rgba(34, 211, 238, 0.08);
+            }
+
+            .dropzone h3 {
+                margin: 0.6rem 0 0.3rem;
+            }
+
+            .dropzone p {
+                margin: 0;
+                color: var(--muted);
+            }
+
+            .model-info {
+                margin-top: 1rem;
+                padding: 1rem;
+                border-radius: 0.9rem;
+                background: rgba(34, 211, 238, 0.08);
+                border: 1px solid rgba(34, 211, 238, 0.25);
+                display: none;
+            }
+
+            .model-info.is-visible {
+                display: block;
+            }
+
+            .settings-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 1rem;
+                margin-top: 1rem;
+            }
+
+            .form-field label {
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.85rem;
+                color: var(--muted);
+                margin-bottom: 0.3rem;
+            }
+
+            .form-field input {
+                width: 100%;
+                border-radius: 0.7rem;
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                background: rgba(15, 23, 42, 0.9);
+                color: var(--text);
+                padding: 0.65rem;
+            }
+
+            button,
+            .btn {
+                border: none;
+                border-radius: 0.9rem;
+                padding: 0.75rem 1.2rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+
+            button:hover,
+            .btn:hover {
+                transform: translateY(-2px);
+            }
+
+            .btn-primary {
+                background: var(--accent);
+                color: #02121c;
+                box-shadow: 0 15px 30px rgba(34, 211, 238, 0.3);
+            }
+
+            .btn-outline {
+                background: transparent;
+                color: var(--text);
+                border: 1px solid rgba(148, 163, 184, 0.5);
+            }
+
+            .actions {
+                margin-top: 1.5rem;
+                display: flex;
+                gap: 0.8rem;
+                flex-wrap: wrap;
+            }
+
+            .workspace {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+                min-height: 0;
+            }
+
+            .workspace-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            .workspace-header h2 {
+                margin: 0;
+            }
+
+            .counter-badge {
+                background: rgba(148, 163, 184, 0.2);
+                color: var(--muted);
+                border-radius: 999px;
+                padding: 0.2rem 0.8rem;
+                font-size: 0.85rem;
+            }
+
+            .image-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 1rem;
+            }
+
+            .image-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 1rem;
+                padding: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+
+            .image-card header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .image-preview {
+                position: relative;
+                border-radius: 0.9rem;
+                overflow: hidden;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                min-height: 180px;
+            }
+
+            .image-preview img {
+                width: 100%;
+                display: block;
+            }
+
+            .preview-overlay {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: var(--muted);
+                font-size: 0.9rem;
+                background: linear-gradient(135deg, rgba(2, 6, 23, 0.75), rgba(15, 23, 42, 0.5));
+                text-align: center;
+                padding: 1rem;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+
+            .image-preview.is-pending .preview-overlay {
+                opacity: 1;
+            }
+
+            .result-list {
+                margin: 0;
+                padding-left: 1.1rem;
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+
+            .result-empty {
+                color: var(--muted);
+                font-size: 0.9rem;
+                margin: 0;
+            }
+
+            .card-actions {
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .log-list {
+                margin: 1rem 0 0;
+                padding-left: 1.2rem;
+                font-size: 0.92rem;
+                color: var(--muted);
+                max-height: 180px;
+                overflow: auto;
+            }
+
+            .toast {
+                position: fixed;
+                bottom: 1.5rem;
+                left: 50%;
+                transform: translate(-50%, 120%);
+                background: rgba(2, 10, 25, 0.9);
+                border: 1px solid rgba(34, 211, 238, 0.4);
+                padding: 0.8rem 1.2rem;
+                border-radius: 999px;
+                opacity: 0;
+                color: var(--text);
+                transition: opacity 0.3s ease, transform 0.3s ease;
+            }
+
+            .toast.is-visible {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+
+            @media (max-width: 960px) {
+                header {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+
+                .layout {
+                    grid-template-columns: 1fr;
+                    padding: 0 1.25rem;
+                }
+            }
+        </style>
     </head>
     <body>
-        <h1>推論実行画面</h1>
+        <header>
+            <div>
+                <span class="tagline">YOLO Inference Console</span>
+                <h1>推論実行ワークスペース</h1>
+                <p>
+                    学習済みモデル(.pt)を読み込み、推論画像をまとめて登録し、設定を調整して推論を実行します。
+                    実際のYOLO推論処理は後ほど統合予定のため、現時点ではUIとワークフローの確認のみ行えます。
+                </p>
+            </div>
+            <nav>
+                <a href="{% url 'home' %}">← ホームに戻る</a>
+            </nav>
+        </header>
+
+        <div class="layout">
+            <div class="control-stack">
+                <section class="panel">
+                    <div class="section-header">
+                        <h2>モデルインポート</h2>
+                        <span id="modelStatus" class="status-chip status-idle">モデル未読込</span>
+                    </div>
+                    <small>Google Colabで学習した.ptファイルを登録してください。</small>
+                    <div class="dropzone" id="modelDropzone">
+                        <input id="modelInput" type="file" accept=".pt" hidden />
+                        <p class="counter-badge">.ptファイルに対応</p>
+                        <h3>モデルファイルをドラッグ&ドロップ</h3>
+                        <p>またはここをクリックしてファイルを選択</p>
+                    </div>
+                    <div class="model-info" id="modelInfo"></div>
+                </section>
+
+                <section class="panel">
+                    <div class="section-header">
+                        <h2>推論設定</h2>
+                    </div>
+                    <small>各設定値は推論実行時に適用されます。</small>
+                    <form id="settingsForm">
+                        <div class="settings-grid">
+                            <div class="form-field">
+                                <label for="imgSize">
+                                    img_size
+                                    <span>px</span>
+                                </label>
+                                <input id="imgSize" name="img_size" type="number" min="32" max="2048" step="32" value="640" />
+                            </div>
+                            <div class="form-field">
+                                <label for="numWorkers">
+                                    num_workers
+                                    <span>CPU</span>
+                                </label>
+                                <input id="numWorkers" name="num_workers" type="number" min="1" max="32" value="4" />
+                            </div>
+                            <div class="form-field">
+                                <label for="minConfidence">
+                                    min_confidence
+                                    <span>0–1</span>
+                                </label>
+                                <input
+                                    id="minConfidence"
+                                    name="min_confidence"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value="0.25"
+                                />
+                            </div>
+                            <div class="form-field">
+                                <label for="minIou">
+                                    min_iou
+                                    <span>0–1</span>
+                                </label>
+                                <input id="minIou" name="min_iou" type="number" min="0" max="1" step="0.01" value="0.45" />
+                            </div>
+                            <div class="form-field">
+                                <label for="maxBbox">
+                                    max_bbox
+                                    <span>/img</span>
+                                </label>
+                                <input id="maxBbox" name="max_bbox" type="number" min="1" max="1000" value="300" />
+                            </div>
+                        </div>
+                    </form>
+                    <div class="actions">
+                        <button class="btn-primary" type="button" id="runInference">推論開始（ダミー）</button>
+                        <button class="btn-outline" type="button" id="resetWorkspace">入力をリセット</button>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <div class="section-header">
+                        <h2>実行メモ</h2>
+                    </div>
+                    <small>最新の設定やノートを確認できます。</small>
+                    <ol class="log-list" id="runLog"></ol>
+                </section>
+            </div>
+
+            <section class="panel workspace">
+                <div class="workspace-header">
+                    <div>
+                        <h2>推論画像</h2>
+                        <small>複数枚まとめて登録できます。</small>
+                    </div>
+                    <span class="counter-badge" id="imageCounter">0枚</span>
+                </div>
+                <div class="dropzone" id="imageDropzone">
+                    <input id="imageInput" type="file" accept="image/*" multiple hidden />
+                    <p class="counter-badge">JPEG / PNGなど</p>
+                    <h3>推論したい画像を追加</h3>
+                    <p>ここにドロップ、またはクリックしてファイルを選択</p>
+                </div>
+                <div class="image-grid" id="imageGrid">
+                    <div class="image-card">
+                        <p class="result-empty">
+                            まだ画像がありません。モデルと設定を準備したらここに推論候補が表示されます。
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+        <script>
+            const state = {
+                model: null,
+                images: [],
+                settings: {
+                    img_size: 640,
+                    num_workers: 4,
+                    min_confidence: 0.25,
+                    min_iou: 0.45,
+                    max_bbox: 300,
+                },
+                logs: [],
+            };
+
+            const toastEl = document.getElementById("toast");
+            const modelInput = document.getElementById("modelInput");
+            const modelDropzone = document.getElementById("modelDropzone");
+            const modelStatus = document.getElementById("modelStatus");
+            const modelInfo = document.getElementById("modelInfo");
+            const imageInput = document.getElementById("imageInput");
+            const imageDropzone = document.getElementById("imageDropzone");
+            const imageGrid = document.getElementById("imageGrid");
+            const imageCounter = document.getElementById("imageCounter");
+            const settingsForm = document.getElementById("settingsForm");
+            const runLog = document.getElementById("runLog");
+            const runBtn = document.getElementById("runInference");
+            const resetBtn = document.getElementById("resetWorkspace");
+            let toastTimer = null;
+
+            const uuid = () => crypto.randomUUID?.() ?? `id-${Date.now()}-${Math.random()}`;
+
+            const showToast = (message) => {
+                toastEl.textContent = message;
+                toastEl.classList.add("is-visible");
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => toastEl.classList.remove("is-visible"), 2500);
+            };
+
+            const formatBytes = (bytes) => {
+                if (!Number.isFinite(bytes)) return "-";
+                if (bytes === 0) return "0 B";
+                const units = ["B", "KB", "MB", "GB"];
+                const index = Math.floor(Math.log(bytes) / Math.log(1024));
+                return `${(bytes / 1024 ** index).toFixed(1)} ${units[index]}`;
+            };
+
+            const renderModelInfo = () => {
+                if (!state.model) {
+                    modelStatus.textContent = "モデル未読込";
+                    modelStatus.className = "status-chip status-idle";
+                    modelInfo.classList.remove("is-visible");
+                    modelInfo.innerHTML = "";
+                    return;
+                }
+
+                modelStatus.textContent = "モデル読込済み";
+                modelStatus.className = "status-chip status-ready";
+                modelInfo.classList.add("is-visible");
+                const { name, size, importedAt } = state.model;
+                modelInfo.innerHTML = `
+                    <strong>${name}</strong>
+                    <p style="margin:0.4rem 0 0.2rem;">サイズ: ${formatBytes(size)}</p>
+                    <p style="margin:0;color:var(--muted);">読込時刻: ${importedAt.toLocaleString()}</p>
+                `;
+            };
+
+            const renderImageGrid = () => {
+                imageGrid.innerHTML = "";
+                imageCounter.textContent = `${state.images.length}枚`;
+                if (!state.images.length) {
+                    const placeholder = document.createElement("div");
+                    placeholder.className = "image-card";
+                    placeholder.innerHTML =
+                        '<p class="result-empty">画像を登録するとここに一覧が表示されます。</p>';
+                    imageGrid.appendChild(placeholder);
+                    return;
+                }
+
+                state.images.forEach((image) => {
+                    const card = document.createElement("article");
+                    card.className = "image-card";
+                    const header = document.createElement("header");
+                    const title = document.createElement("div");
+                    title.innerHTML = `<strong>${image.name}</strong><br/><span style="color:var(--muted)">${formatBytes(
+                        image.size,
+                    )}</span>`;
+                    const chip = document.createElement("span");
+                    chip.className = "status-chip";
+                    chip.textContent = image.status === "completed" ? "結果待ち（統合待ち）" : "未推論";
+                    chip.classList.add(image.status === "completed" ? "status-ready" : "status-idle");
+                    header.appendChild(title);
+                    header.appendChild(chip);
+                    card.appendChild(header);
+
+                    const preview = document.createElement("div");
+                    preview.className = "image-preview";
+                    if (image.status === "running") preview.classList.add("is-pending");
+                    const imgEl = document.createElement("img");
+                    imgEl.src = image.src;
+                    imgEl.alt = image.name;
+                    preview.appendChild(imgEl);
+                    const overlay = document.createElement("div");
+                    overlay.className = "preview-overlay";
+                    overlay.textContent =
+                        image.status === "running"
+                            ? "推論準備中..."
+                            : "推論結果は統合後にここへ表示されます。";
+                    preview.appendChild(overlay);
+                    card.appendChild(preview);
+
+                    const resultContainer = document.createElement("div");
+                    if (image.results.length) {
+                        const list = document.createElement("ul");
+                        list.className = "result-list";
+                        image.results.forEach((result) => {
+                            const li = document.createElement("li");
+                            li.textContent = result;
+                            list.appendChild(li);
+                        });
+                        resultContainer.appendChild(list);
+                    } else {
+                        const empty = document.createElement("p");
+                        empty.className = "result-empty";
+                        empty.textContent = "結果待ちです。実装後にBBoxとクラスが表示されます。";
+                        resultContainer.appendChild(empty);
+                    }
+                    card.appendChild(resultContainer);
+
+                    const actions = document.createElement("div");
+                    actions.className = "card-actions";
+                    const downloadBtn = document.createElement("button");
+                    downloadBtn.className = "btn-outline";
+                    downloadBtn.type = "button";
+                    downloadBtn.textContent = "結果を保存（元画像）";
+                    downloadBtn.addEventListener("click", () => downloadImage(image));
+                    actions.appendChild(downloadBtn);
+                    card.appendChild(actions);
+
+                    imageGrid.appendChild(card);
+                });
+            };
+
+            const renderLogs = () => {
+                runLog.innerHTML = "";
+                if (!state.logs.length) {
+                    const placeholder = document.createElement("li");
+                    placeholder.textContent = "まだ履歴がありません。";
+                    runLog.appendChild(placeholder);
+                    return;
+                }
+                state.logs.forEach((entry) => {
+                    const li = document.createElement("li");
+                    li.textContent = `[${entry.timestamp.toLocaleTimeString()}] ${entry.text}`;
+                    runLog.appendChild(li);
+                });
+            };
+
+            const handleModelFiles = (files) => {
+                const file = files?.[0];
+                if (!file) return;
+                if (!file.name.endsWith(".pt")) {
+                    showToast("拡張子が.ptのファイルを選択してください");
+                    return;
+                }
+                state.model = {
+                    id: uuid(),
+                    name: file.name,
+                    size: file.size,
+                    file,
+                    importedAt: new Date(),
+                };
+                renderModelInfo();
+                showToast(`モデル ${file.name} を読み込みました`);
+            };
+
+            const handleImageFiles = (files) => {
+                Array.from(files).forEach((file) => {
+                    if (!file.type.startsWith("image/")) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        state.images.push({
+                            id: uuid(),
+                            name: file.name,
+                            size: file.size,
+                            src: event.target.result,
+                            status: "pending",
+                            results: [],
+                        });
+                        renderImageGrid();
+                    };
+                    reader.readAsDataURL(file);
+                });
+                if (files.length) {
+                    showToast(`${files.length}件の画像を追加しました`);
+                }
+            };
+
+            const updateSettings = () => {
+                const formData = new FormData(settingsForm);
+                Object.keys(state.settings).forEach((key) => {
+                    const value = formData.get(key);
+                    if (value !== null) {
+                        const num = Number(value);
+                        state.settings[key] = Number.isFinite(num) ? num : value;
+                    }
+                });
+            };
+
+            const queueInference = () => {
+                if (!state.model) {
+                    showToast("まずモデルファイルを読み込んでください");
+                    return;
+                }
+                if (!state.images.length) {
+                    showToast("推論したい画像を追加してください");
+                    return;
+                }
+                updateSettings();
+                const summary = `img_size=${state.settings.img_size}, min_conf=${state.settings.min_confidence}, min_iou=${state.settings.min_iou}, 画像${state.images.length}枚`;
+                state.logs.unshift({ id: uuid(), text: summary, timestamp: new Date() });
+                if (state.logs.length > 20) state.logs.pop();
+                state.images.forEach((image) => {
+                    image.status = "running";
+                    image.results = [];
+                });
+                renderImageGrid();
+                renderLogs();
+                showToast("推論ジョブを作成しました（実装待ち）");
+                setTimeout(() => {
+                    state.images.forEach((image, index) => {
+                        setTimeout(() => {
+                            image.status = "completed";
+                            image.results = [
+                                "YOLO推論エンジンは未接続です。",
+                                "統合完了後にバウンディングボックスとクラスラベルが表示されます。",
+                            ];
+                            renderImageGrid();
+                        }, 200 * index);
+                    });
+                }, 600);
+            };
+
+            const downloadImage = (image) => {
+                const link = document.createElement("a");
+                link.href = image.src;
+                link.download = `result_${image.name}`;
+                link.click();
+            };
+
+            const resetWorkspace = () => {
+                state.images = [];
+                state.logs = [];
+                renderImageGrid();
+                renderLogs();
+                showToast("画像と履歴をクリアしました");
+            };
+
+            modelDropzone.addEventListener("click", () => modelInput.click());
+            modelDropzone.addEventListener("dragover", (evt) => {
+                evt.preventDefault();
+                modelDropzone.classList.add("is-dragover");
+            });
+            modelDropzone.addEventListener("dragleave", () => modelDropzone.classList.remove("is-dragover"));
+            modelDropzone.addEventListener("drop", (evt) => {
+                evt.preventDefault();
+                modelDropzone.classList.remove("is-dragover");
+                handleModelFiles(evt.dataTransfer.files);
+            });
+            modelInput.addEventListener("change", (evt) => {
+                handleModelFiles(evt.target.files);
+                modelInput.value = "";
+            });
+
+            imageDropzone.addEventListener("click", () => imageInput.click());
+            imageDropzone.addEventListener("dragover", (evt) => {
+                evt.preventDefault();
+                imageDropzone.classList.add("is-dragover");
+            });
+            imageDropzone.addEventListener("dragleave", () => imageDropzone.classList.remove("is-dragover"));
+            imageDropzone.addEventListener("drop", (evt) => {
+                evt.preventDefault();
+                imageDropzone.classList.remove("is-dragover");
+                handleImageFiles(evt.dataTransfer.files);
+            });
+            imageInput.addEventListener("change", (evt) => {
+                handleImageFiles(evt.target.files);
+                imageInput.value = "";
+            });
+
+            settingsForm.addEventListener("input", updateSettings);
+            runBtn.addEventListener("click", queueInference);
+            resetBtn.addEventListener("click", resetWorkspace);
+
+            renderModelInfo();
+            renderImageGrid();
+            renderLogs();
+        </script>
     </body>
 </html>
