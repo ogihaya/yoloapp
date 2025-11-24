@@ -24,6 +24,34 @@ from .services.yolo_inference import (
 
 logger = logging.getLogger(__name__)
 
+
+def _normalize_class_names(classes: List[Dict[str, str]]) -> List[str]:
+    normalized: List[str] = []
+    for index, cls in enumerate(classes):
+        label = str(cls.get("label") or "").strip()
+        normalized.append(label or f"class_{index}")
+    return normalized
+
+
+def _build_dataset_yaml(class_names: List[str]) -> str:
+    class_list_literal = json.dumps(class_names, ensure_ascii=False)
+    img_size_literal = json.dumps([1280, 1280])
+    lines = [
+        "path: dataset",
+        "train: train",
+        "validation: val",
+        "test: test",
+        "",
+        f"class_num: {len(class_names)}",
+        f"class_list: {class_list_literal}",
+        "",
+        f"img_size: {img_size_literal}",
+        "",
+        "num_workers: 2",
+        "",
+    ]
+    return "\n".join(lines)
+
 # ホーム画面のビュー関数
 def home(request):
     """
@@ -73,6 +101,10 @@ def _export_dataset_zip(request, dataset_slug: str):
         return JsonResponse({"error": "エクスポートする前に画像を追加してください"}, status=400)
 
     class_index = {cls["id"]: idx for idx, cls in enumerate(classes)}
+    dataset_yaml_content = None
+    if dataset_slug.lower() == "train":
+        class_names_for_yaml = _normalize_class_names(classes)
+        dataset_yaml_content = _build_dataset_yaml(class_names_for_yaml)
     used_names = set()
 
     def unique_filename(original_name: str, fallback_ext: str = ".png") -> str:
@@ -136,6 +168,9 @@ def _export_dataset_zip(request, dataset_slug: str):
             label_name = f"{dataset_folder}/labels/{Path(filename).stem}.txt"
             label_content = "\n".join(label_lines)
             archive.writestr(label_name, label_content)
+
+        if dataset_yaml_content:
+            archive.writestr(f"{dataset_folder}/dataset.yml", dataset_yaml_content)
 
     buffer.seek(0)
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")

@@ -578,6 +578,7 @@
             const panelClose = document.querySelector("[data-panel-close]");
             const modalClose = document.querySelector("[data-modal-close]");
             const exportUrl = "{% url 'export_val_zip' %}";
+            const VAL_CLASS_STORAGE_KEY = "yoloApp.prefillValClasses";
 
             let toastTimer = null;
             let drawingContext = null;
@@ -585,6 +586,34 @@
             const uuid = () => crypto.randomUUID?.() ?? `id-${Date.now()}-${Math.random()}`;
 
             const getClassById = (id) => state.classes.find((cls) => cls.id === id);
+
+            const restoreTransferredClasses = () => {
+                const raw = sessionStorage.getItem(VAL_CLASS_STORAGE_KEY);
+                if (!raw) return;
+                sessionStorage.removeItem(VAL_CLASS_STORAGE_KEY);
+                try {
+                    const payload = JSON.parse(raw);
+                    const incoming = Array.isArray(payload?.classes) ? payload.classes : [];
+                    if (!incoming.length) return;
+                    state.classes = incoming.map((cls, index) => ({
+                        id: cls.id || uuid(),
+                        label: cls.label || `Class ${index + 1}`,
+                        color: cls.color || "#38bdf8",
+                    }));
+                    const fallbackId = state.classes[0]?.id ?? null;
+                    const desiredActive = payload?.activeClassId;
+                    if (desiredActive && state.classes.some((cls) => cls.id === desiredActive)) {
+                        state.activeClassId = desiredActive;
+                    } else {
+                        state.activeClassId = fallbackId;
+                    }
+                    renderClassList();
+                    updateActiveClassDisplay();
+                    showToast("Train画面のクラス設定を引き継ぎました");
+                } catch (error) {
+                    console.error("Failed to restore classes from train page", error);
+                }
+            };
 
             const showToast = (message) => {
                 toastEl.textContent = message;
@@ -992,10 +1021,13 @@
             };
 
             panelToggle.addEventListener("click", () => panel.classList.toggle("is-visible"));
-            panelClose.addEventListener("click", () => panel.classList.remove("is-visible"));
+            if (panelClose) {
+                panelClose.addEventListener("click", () => panel.classList.remove("is-visible"));
+            }
 
             renderClassList();
             updateActiveClassDisplay();
+            restoreTransferredClasses();
         </script>
     </body>
 </html>
