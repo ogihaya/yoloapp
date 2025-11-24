@@ -110,7 +110,7 @@ YOLOモデルのアノテーションから推論までを一貫して管理で�
   │   ├── image001.txt
   │   ├── image002.txt
   │   └── ...
-  └── dataset.yml
+  └── dataset.yaml
   ```
 - **出力内容**:
   - **imagesフォルダ**: アノテーション対象の画像ファイル
@@ -120,8 +120,8 @@ YOLOモデルのアノテーションから推論までを一貫して管理で�
       ```
       class_id center_x center_y width height
       ```
-  - **dataset.yml**: YOLO学習用のデータセット設定ファイル
-    - **ファイル名**: `dataset.yml`（train.zipのルートディレクトリに含まれる）
+  - **dataset.yaml**: YOLO学習用のデータセット設定ファイル
+    - **ファイル名**: `dataset.yaml`（train.zipのルートディレクトリに含まれる）
     - **内容**: trainのアノテーションで設定したクラス設定を反映したYAML形式の設定ファイル
     - **主要な設定項目**:
       - `path`: データセットのパス（`dataset`）

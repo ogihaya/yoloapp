@@ -170,7 +170,7 @@ def _export_dataset_zip(request, dataset_slug: str):
             archive.writestr(label_name, label_content)
 
         if dataset_yaml_content:
-            archive.writestr(f"{dataset_folder}/dataset.yml", dataset_yaml_content)
+            archive.writestr(f"{dataset_folder}/dataset.yaml", dataset_yaml_content)
 
     buffer.seek(0)
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")

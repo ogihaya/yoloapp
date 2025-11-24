@@ -641,6 +641,8 @@
                     isRunning: false,
                 };
 
+                const INFERENCE_CLASS_STORAGE_KEY = "yoloApp.prefillInferenceClasses";
+
                 const elements = {
                     toast: document.getElementById("toast"),
                     modelInput: document.getElementById("modelInput"),
@@ -679,6 +681,28 @@
                     elements.toast.classList.add('is-visible');
                     clearTimeout(toastTimer);
                     toastTimer = setTimeout(() => elements.toast.classList.remove('is-visible'), 2800);
+                };
+
+                const restorePrefilledClasses = () => {
+                    const raw = sessionStorage.getItem(INFERENCE_CLASS_STORAGE_KEY);
+                    if (!raw) return;
+                    sessionStorage.removeItem(INFERENCE_CLASS_STORAGE_KEY);
+                    try {
+                        const payload = JSON.parse(raw);
+                        const incoming = Array.isArray(payload?.classes) ? payload.classes : [];
+                        const labels = incoming
+                            .map((cls, idx) => {
+                                const label = typeof cls?.label === 'string' ? cls.label.trim() : '';
+                                return label || `class_${idx}`;
+                            })
+                            .filter(Boolean);
+                        if (!labels.length) return;
+                        state.classNames = labels;
+                        state.classEditorText = labels.join("\n");
+                        showToast('Val画面のクラス設定を読み込みました');
+                    } catch (error) {
+                        console.error('Failed to restore classes for inference page', error);
+                    }
                 };
 
                 const getManualClasses = () =>
@@ -1117,6 +1141,7 @@
                     renderClassPreview();
                 });
 
+                restorePrefilledClasses();
                 elements.classEditor.value = state.classEditorText;
                 renderModelInfo();
                 renderImageGrid();

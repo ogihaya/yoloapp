@@ -241,6 +241,13 @@
                 box-shadow: none;
             }
 
+            .btn-secondary {
+                background: rgba(109, 40, 217, 0.12);
+                border: 1px solid rgba(147, 197, 253, 0.4);
+                color: var(--text);
+                box-shadow: none;
+            }
+
             .workspace {
                 padding: 2rem;
                 display: flex;
@@ -391,6 +398,8 @@
             .workspace-footer {
                 display: flex;
                 justify-content: flex-end;
+                gap: 0.8rem;
+                flex-wrap: wrap;
             }
 
             .modal {
@@ -535,6 +544,8 @@
                     </div>
                 </section>
                 <div class="workspace-footer">
+                    <button class="btn-secondary" type="button" id="colabBtn">Colabで学習する</button>
+                    <button class="btn-secondary" type="button" id="goInferenceBtn">推論画面へ移動</button>
                     <button type="button" id="exportBtn">完了（val.zipをエクスポート）</button>
                 </div>
             </main>
@@ -573,12 +584,17 @@
             const exportModal = document.getElementById("exportModal");
             const exportBtn = document.getElementById("exportBtn");
             const confirmExport = document.getElementById("confirmExport");
+            const colabBtn = document.getElementById("colabBtn");
+            const goInferenceBtn = document.getElementById("goInferenceBtn");
             const panel = document.getElementById("classPanel");
             const panelToggle = document.querySelector("[data-panel-toggle]");
             const panelClose = document.querySelector("[data-panel-close]");
             const modalClose = document.querySelector("[data-modal-close]");
             const exportUrl = "{% url 'export_val_zip' %}";
+            const inferencePageUrl = "{% url 'inference' %}";
+            const COLAB_URL = "https://colab.research.google.com/drive/1gs3ujkr-Mw9_IVzg0NQ-n2VrtWdyAJQN";
             const VAL_CLASS_STORAGE_KEY = "yoloApp.prefillValClasses";
+            const INFERENCE_CLASS_STORAGE_KEY = "yoloApp.prefillInferenceClasses";
 
             let toastTimer = null;
             let drawingContext = null;
@@ -586,6 +602,12 @@
             const uuid = () => crypto.randomUUID?.() ?? `id-${Date.now()}-${Math.random()}`;
 
             const getClassById = (id) => state.classes.find((cls) => cls.id === id);
+
+            const buildClassTransferPayload = () => ({
+                classes: state.classes.map((cls) => ({ id: cls.id, label: cls.label, color: cls.color })),
+                activeClassId: state.activeClassId,
+                timestamp: Date.now(),
+            });
 
             const restoreTransferredClasses = () => {
                 const raw = sessionStorage.getItem(VAL_CLASS_STORAGE_KEY);
@@ -975,6 +997,22 @@
             confirmExport.addEventListener("click", async () => {
                 exportModal.setAttribute("aria-hidden", "true");
                 await performExport();
+            });
+
+            colabBtn.addEventListener("click", () => {
+                const win = window.open(COLAB_URL, "_blank", "noopener,noreferrer");
+                if (win) {
+                    win.opener = null;
+                }
+            });
+
+            goInferenceBtn.addEventListener("click", () => {
+                if (!state.classes.length) {
+                    showToast("推論画面へ移動する前にクラスを設定してください");
+                    return;
+                }
+                sessionStorage.setItem(INFERENCE_CLASS_STORAGE_KEY, JSON.stringify(buildClassTransferPayload()));
+                window.location.href = inferencePageUrl;
             });
 
             const performExport = async () => {
