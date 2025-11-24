@@ -82,6 +82,7 @@ class YoloV9InferenceEngine:
         self._current_weight_hash: Optional[str] = None
         self._lock = threading.RLock()
         self._bootstrapped = False
+        self._configured_class_count: Optional[int] = None
 
     @property
     def class_names(self) -> List[str]:
@@ -111,6 +112,7 @@ class YoloV9InferenceEngine:
     ) -> Dict[str, Any]:
         with self._lock:
             self._ensure_bootstrapped()
+            self._apply_dataset_overrides(settings.class_names)
             self._load_weights(model_bytes, model_label)
             return self._predict(images, settings)
 
@@ -178,10 +180,15 @@ class YoloV9InferenceEngine:
 
         self._cfg = cfg
         self._device = self._select_device(torch)
-        class_num = getattr(cfg.dataset, "class_num", len(getattr(cfg.dataset, "class_list", [])))
-        self._model = self._create_model(cfg.model, weight_path=False, class_num=class_num).to(self._device)
-        self._model.eval()
-        self._class_names = list(getattr(cfg.dataset, "class_list", []))
+        dataset_class_list = list(getattr(cfg.dataset, "class_list", []))
+        class_num = getattr(cfg.dataset, "class_num", len(dataset_class_list))
+        if not class_num:
+            class_num = len(dataset_class_list) or 1
+        self._initialize_model(class_num)
+        sanitized_classes = self._sanitize_class_names(dataset_class_list)
+        if not sanitized_classes and class_num:
+            sanitized_classes = [f"class_{idx}" for idx in range(class_num)]
+        self._class_names = sanitized_classes
         self._bootstrapped = True
         logger.info("YOLOv9 推論エンジンを初期化しました（device=%s）", self.device_label)
 
@@ -197,6 +204,48 @@ class YoloV9InferenceEngine:
             return importlib.import_module(module_name)
         except ImportError as exc:
             raise MissingDependencyError(error_message) from exc
+
+    # ------------------------------------------------------------------ #
+    # Dataset configuration helpers
+    # ------------------------------------------------------------------ #
+    def _initialize_model(self, class_num: int) -> None:
+        if class_num <= 0:
+            raise YoloInferenceError("クラス数が0以下です。dataset設定を見直してください。")
+        if self._cfg is None or self._device is None:
+            raise YoloInferenceError("推論エンジンの初期化に失敗しました。")
+        self._model = self._create_model(self._cfg.model, weight_path=False, class_num=class_num).to(self._device)
+        self._model.eval()
+        self._configured_class_count = class_num
+        # モデルを再構築した場合は重みを再読込させる
+        self._current_weight_hash = None
+
+    def _sanitize_class_names(self, names: Optional[List[str]]) -> List[str]:
+        if not names:
+            return []
+        sanitized: List[str] = []
+        seen = set()
+        for raw in names:
+            label = str(raw).strip()
+            if not label or label in seen:
+                continue
+            sanitized.append(label)
+            seen.add(label)
+        return sanitized
+
+    def _apply_dataset_overrides(self, class_names: Optional[List[str]]) -> None:
+        sanitized = self._sanitize_class_names(class_names)
+        if not sanitized:
+            return
+        if self._cfg is not None:
+            try:
+                self._cfg.dataset.class_list = sanitized
+                self._cfg.dataset.class_num = len(sanitized)
+            except Exception:
+                pass
+        needs_rebuild = self._model is None or self._configured_class_count != len(sanitized)
+        if needs_rebuild:
+            self._initialize_model(len(sanitized))
+        self._class_names = sanitized
 
     # ------------------------------------------------------------------ #
     # Prediction internals
