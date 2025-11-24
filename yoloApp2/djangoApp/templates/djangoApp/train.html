@@ -268,6 +268,30 @@
                 margin: 0;
             }
 
+            .view-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                background: rgba(15, 23, 42, 0.8);
+                border: 1px solid rgba(148, 163, 184, 0.4);
+                border-radius: 999px;
+                padding: 0.2rem;
+            }
+
+            .view-toggle button {
+                border: none;
+                background: transparent;
+                color: var(--muted);
+                padding: 0.35rem 0.85rem;
+                border-radius: 999px;
+                font-size: 0.85rem;
+            }
+
+            .view-toggle button.is-active {
+                background: rgba(56, 189, 248, 0.2);
+                color: var(--text);
+            }
+
             .panel-toggle {
                 display: none;
             }
@@ -297,9 +321,20 @@
 
             .image-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
                 gap: 1.5rem;
                 min-height: 240px;
+            }
+
+            .image-grid[data-view="small"] {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            }
+
+            .image-grid[data-view="medium"] {
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            }
+
+            .image-grid[data-view="large"] {
+                grid-template-columns: minmax(0, 1fr);
             }
 
             .image-card {
@@ -328,6 +363,14 @@
                 border: 1px solid rgba(148, 163, 184, 0.35);
                 min-height: 220px;
                 background: #020617;
+            }
+
+            .image-grid[data-view="small"] .image-stage {
+                min-height: 160px;
+            }
+
+            .image-grid[data-view="large"] .image-stage {
+                min-height: 320px;
             }
 
             .image-stage img {
@@ -522,7 +565,8 @@
                         <label for="classColor">表示色</label>
                         <input id="classColor" name="classColor" type="color" value="#38bdf8" />
                     </div>
-                    <button type="submit">クラスを追加</button>
+                    <button type="submit" id="classFormSubmit">クラスを追加</button>
+                    <button type="button" class="btn-outline" id="cancelEditBtn" hidden>編集をキャンセル</button>
                 </form>
             </aside>
             <main class="workspace">
@@ -531,6 +575,11 @@
                     <button class="btn-outline panel-toggle" type="button" data-panel-toggle>
                         クラスパネルを表示
                     </button>
+                    <div class="view-toggle" role="group" aria-label="画像表示サイズ">
+                        <button type="button" data-view-size="small">小</button>
+                        <button type="button" data-view-size="medium" class="is-active">中</button>
+                        <button type="button" data-view-size="large">大</button>
+                    </div>
                 </div>
                 <section class="dropzone" id="dropzone">
                     <input id="imageInput" type="file" accept="image/*" multiple hidden />
@@ -570,15 +619,20 @@
                 classes: [],
                 activeClassId: null,
                 images: [],
+                viewSize: "medium",
             };
 
             const classListEl = document.getElementById("classList");
             const classForm = document.getElementById("classForm");
             const colorInput = document.getElementById("classColor");
+            const classNameInput = document.getElementById("className");
+            const classFormSubmit = document.getElementById("classFormSubmit");
+            const cancelEditBtn = document.getElementById("cancelEditBtn");
             const activeClassDisplay = document.getElementById("activeClassDisplay");
             const dropzone = document.getElementById("dropzone");
             const imageInput = document.getElementById("imageInput");
             const imageGrid = document.getElementById("imageGrid");
+            const viewSizeButtons = document.querySelectorAll("[data-view-size]");
             const toastEl = document.getElementById("toast");
             const exportModal = document.getElementById("exportModal");
             const exportBtn = document.getElementById("exportBtn");
@@ -591,13 +645,58 @@
             const exportUrl = "{% url 'export_train_zip' %}";
             const valPageUrl = "{% url 'val' %}";
             const VAL_CLASS_STORAGE_KEY = "yoloApp.prefillValClasses";
+            const CLASS_COLOR_PALETTE = [
+                "#38bdf8",
+                "#f472b6",
+                "#facc15",
+                "#34d399",
+                "#a78bfa",
+                "#fb7185",
+                "#f97316",
+                "#4ade80",
+                "#c084fc",
+            ];
 
             let toastTimer = null;
             let drawingContext = null;
+            let nextColorIndex = 0;
+            let editingClassId = null;
 
             const uuid = () => crypto.randomUUID?.() ?? `id-${Date.now()}-${Math.random()}`;
 
             const getClassById = (id) => state.classes.find((cls) => cls.id === id);
+
+            const getSuggestedColor = () => CLASS_COLOR_PALETTE[nextColorIndex % CLASS_COLOR_PALETTE.length];
+            const advanceColorSuggestion = () => {
+                nextColorIndex = (nextColorIndex + 1) % CLASS_COLOR_PALETTE.length;
+            };
+
+            const resetClassFormState = () => {
+                editingClassId = null;
+                classForm.reset();
+                classNameInput.value = "";
+                colorInput.value = getSuggestedColor();
+                classFormSubmit.textContent = "クラスを追加";
+                cancelEditBtn.hidden = true;
+            };
+
+            const enterEditMode = (cls) => {
+                editingClassId = cls.id;
+                classNameInput.value = cls.label;
+                colorInput.value = cls.color;
+                classFormSubmit.textContent = "クラスを更新";
+                cancelEditBtn.hidden = false;
+                state.activeClassId = cls.id;
+                renderClassList();
+                updateActiveClassDisplay();
+            };
+
+            const applyViewSize = () => {
+                imageGrid.dataset.view = state.viewSize;
+                viewSizeButtons.forEach((button) => {
+                    button.classList.toggle("is-active", button.dataset.viewSize === state.viewSize);
+                });
+            };
 
             const buildClassTransferPayload = () => ({
                 classes: state.classes.map((cls) => ({ id: cls.id, label: cls.label, color: cls.color })),
@@ -621,6 +720,9 @@
                 });
                 if (state.activeClassId === id) {
                     state.activeClassId = state.classes[0]?.id ?? null;
+                }
+                if (editingClassId === id) {
+                    resetClassFormState();
                 }
                 renderClassList();
                 updateActiveClassDisplay();
@@ -668,14 +770,28 @@
                     count.style.color = "var(--muted)";
                     actions.appendChild(count);
 
-                    const deleteBtn = document.createElement("button");
-                    deleteBtn.type = "button";
-                    deleteBtn.textContent = "削除";
-                    deleteBtn.addEventListener("click", (event) => {
+                    const editBtn = document.createElement("button");
+                    editBtn.type = "button";
+                    editBtn.textContent = "編集";
+                    editBtn.addEventListener("click", (event) => {
                         event.stopPropagation();
-                        removeClass(cls.id);
+                        enterEditMode(cls);
                     });
-                    actions.appendChild(deleteBtn);
+                    actions.appendChild(editBtn);
+
+                    if (cls.id === editingClassId) {
+                        const deleteBtn = document.createElement("button");
+                        deleteBtn.type = "button";
+                        deleteBtn.textContent = "削除";
+                        deleteBtn.addEventListener("click", (event) => {
+                            event.stopPropagation();
+                            if (!window.confirm(`クラス「${cls.label}」を削除しますか？`)) {
+                                return;
+                            }
+                            removeClass(cls.id);
+                        });
+                        actions.appendChild(deleteBtn);
+                    }
 
                     li.appendChild(actions);
 
@@ -695,6 +811,7 @@
             };
 
             const renderImages = () => {
+                imageGrid.dataset.view = state.viewSize;
                 imageGrid.innerHTML = "";
                 if (!state.images.length) {
                     const empty = document.createElement("div");
@@ -925,29 +1042,70 @@
                 }
             });
 
+            viewSizeButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    const desired = button.dataset.viewSize;
+                    if (!desired || desired === state.viewSize) return;
+                    state.viewSize = desired;
+                    applyViewSize();
+                });
+            });
+
             classForm.addEventListener("submit", (evt) => {
                 evt.preventDefault();
                 const formData = new FormData(classForm);
                 const label = formData.get("className").toString().trim();
-                const color = formData.get("classColor").toString();
                 if (!label) {
                     showToast("クラス名を入力してください");
                     return;
                 }
+                const color = formData.get("classColor")?.toString() || getSuggestedColor();
                 const labelLower = label.toLowerCase();
-                const hasDuplicate = state.classes.some((cls) => cls.label.toLowerCase() === labelLower);
+                const hasDuplicate = state.classes.some(
+                    (cls) => cls.label.toLowerCase() === labelLower && cls.id !== editingClassId,
+                );
                 if (hasDuplicate) {
                     showToast("同じ名前のクラスは追加できません");
                     return;
                 }
+
+                if (editingClassId) {
+                    const target = getClassById(editingClassId);
+                    if (!target) {
+                        resetClassFormState();
+                        return;
+                    }
+                    target.label = label;
+                    target.color = color;
+                    state.images.forEach((image) => {
+                        image.boxes.forEach((box) => {
+                            if (box.classId === target.id) {
+                                box.color = color;
+                            }
+                        });
+                    });
+                    renderClassList();
+                    updateActiveClassDisplay();
+                    renderImages();
+                    showToast(`クラス「${label}」を更新しました`);
+                    resetClassFormState();
+                    return;
+                }
+
                 const newClass = { id: uuid(), label, color };
                 state.classes.push(newClass);
                 state.activeClassId = newClass.id;
-                classForm.reset();
-                colorInput.value = "#38bdf8";
                 renderClassList();
                 updateActiveClassDisplay();
                 showToast(`クラス「${label}」を追加しました`);
+                advanceColorSuggestion();
+                resetClassFormState();
+            });
+
+            cancelEditBtn.addEventListener("click", () => {
+                resetClassFormState();
+                renderClassList();
+                updateActiveClassDisplay();
             });
 
             exportBtn.addEventListener("click", () => {
@@ -1024,6 +1182,8 @@
                 panelClose.addEventListener("click", () => panel.classList.remove("is-visible"));
             }
 
+            resetClassFormState();
+            applyViewSize();
             renderClassList();
             updateActiveClassDisplay();
         </script>
