@@ -225,6 +225,13 @@ button:disabled,
     border: 1px solid rgba(148, 163, 184, 0.5);
 }
 
+.btn-danger {
+    background: rgba(251, 113, 133, 0.12);
+    border: 1px solid rgba(251, 113, 133, 0.45);
+    color: #fecdd3;
+    box-shadow: none;
+}
+
 .actions {
     margin-top: 1.5rem;
     display: flex;
@@ -353,6 +360,12 @@ button:disabled,
 
 .card-actions button {
     flex: 1;
+}
+
+.image-meta-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 1.2rem 0.75rem;
 }
 
 .toast {

@@ -280,6 +280,15 @@
             downloadBtn.disabled = !image.resultImage;
             downloadBtn.addEventListener("click", () => downloadImage(image));
             actions.appendChild(downloadBtn);
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-outline btn-danger";
+            deleteBtn.textContent = "画像を削除";
+            deleteBtn.addEventListener("click", () => {
+                if (window.confirm(`画像「${image.name}」を削除しますか？`)) {
+                    removeImage(image.id);
+                }
+            });
+            actions.appendChild(deleteBtn);
             card.appendChild(actions);
 
             elements.imageGrid.appendChild(card);
@@ -360,6 +369,14 @@
         renderLogs();
         renderModelInfo();
         showToast("画像と履歴をクリアしました");
+    };
+
+    const removeImage = (imageId) => {
+        const target = state.images.find((img) => img.id === imageId);
+        if (!target) return;
+        state.images = state.images.filter((img) => img.id !== imageId);
+        renderImageGrid();
+        showToast(`画像「${target.name}」を削除しました`);
     };
 
     const applyInferenceResults = (payload) => {

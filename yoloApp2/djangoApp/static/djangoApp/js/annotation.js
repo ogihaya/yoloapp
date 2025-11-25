@@ -161,6 +161,14 @@
         showToast(`クラス「${target.label}」を削除しました`);
     };
 
+    const removeImage = (imageId) => {
+        const target = state.images.find((img) => img.id === imageId);
+        if (!target) return;
+        state.images = state.images.filter((img) => img.id !== imageId);
+        renderImages();
+        showToast(`画像「${target.name}」を削除しました`);
+    };
+
     const renderClassList = () => {
         classListEl.innerHTML = "";
         if (!state.classes.length) {
@@ -296,6 +304,21 @@
                 });
                 card.appendChild(list);
             }
+
+            const actions = document.createElement("div");
+            actions.className = "image-actions";
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "btn-outline btn-danger";
+            deleteBtn.textContent = "画像を削除";
+            deleteBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                if (window.confirm(`画像「${image.name}」を削除しますか？`)) {
+                    removeImage(image.id);
+                }
+            });
+            actions.appendChild(deleteBtn);
+            card.appendChild(actions);
 
             imageGrid.appendChild(card);
         });

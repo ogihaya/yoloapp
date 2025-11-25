@@ -243,6 +243,13 @@ button:hover,
     box-shadow: none;
 }
 
+.btn-danger {
+    background: rgba(251, 113, 133, 0.12);
+    border: 1px solid rgba(251, 113, 133, 0.5);
+    color: #fecdd3;
+    box-shadow: none;
+}
+
 .workspace {
     padding: 2rem;
     display: flex;
@@ -431,6 +438,13 @@ button:hover,
 
 .box-list li {
     margin-bottom: 0.2rem;
+}
+
+.image-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .workspace-footer {
