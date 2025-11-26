@@ -19,6 +19,7 @@
         lastStats: null,
         lastDevice: "",
         isRunning: false,
+        viewSize: "medium",
     };
 
     const INFERENCE_CLASS_STORAGE_KEY = "yoloApp.prefillInferenceClasses";
@@ -39,6 +40,8 @@
         resetBtn: document.getElementById("resetWorkspace"),
         classEditor: document.getElementById("classEditor"),
         classPreview: document.getElementById("classPreview"),
+        bulkDownloadBtn: document.getElementById("bulkDownloadResults"),
+        viewSizeButtons: document.querySelectorAll("[data-view-size]"),
     };
 
     let toastTimer = null;
@@ -204,6 +207,7 @@
     };
 
     const renderImageGrid = () => {
+        elements.imageGrid.dataset.view = state.viewSize;
         elements.imageGrid.innerHTML = "";
         elements.imageCounter.textContent = `${state.images.length}枚`;
         if (!state.images.length) {
@@ -542,10 +546,48 @@
         renderClassPreview();
     });
 
+    const applyViewSize = () => {
+        elements.imageGrid.dataset.view = state.viewSize;
+        elements.viewSizeButtons.forEach((button) => {
+            button.classList.toggle("is-active", button.dataset.viewSize === state.viewSize);
+        });
+    };
+
+    elements.viewSizeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const desired = button.dataset.viewSize;
+            if (!desired || desired === state.viewSize) return;
+            state.viewSize = desired;
+            applyViewSize();
+        });
+    });
+
+    const bulkDownloadResults = () => {
+        const ready = state.images.filter((img) => img.resultImage);
+        if (!ready.length) {
+            showToast("保存できる結果画像がありません。", true);
+            return;
+        }
+        ready.forEach((image, index) => {
+            const link = document.createElement("a");
+            link.href = image.resultImage;
+            link.download = `result_${index + 1}_${image.name || "image"}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        });
+        showToast(`${ready.length}件の結果画像を保存しました。`);
+    };
+
+    if (elements.bulkDownloadBtn) {
+        elements.bulkDownloadBtn.addEventListener("click", bulkDownloadResults);
+    }
+
     restorePrefilledClasses();
     elements.classEditor.value = state.classEditorText;
     renderModelInfo();
     renderImageGrid();
     renderLogs();
     renderClassPreview();
+    applyViewSize();
 })();

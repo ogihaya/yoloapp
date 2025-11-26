@@ -243,9 +243,60 @@ button:disabled,
     margin-top: 1rem;
 }
 
+.workspace-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.workspace-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+    padding: 0.2rem;
+}
+
+.view-toggle button {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+}
+
+.view-toggle button.is-active {
+    background: rgba(34, 211, 238, 0.15);
+    color: var(--text);
+}
+
 .image-grid {
     display: grid;
     gap: 1rem;
+}
+
+.image-grid[data-view="small"] {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.image-grid[data-view="medium"] {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.image-grid[data-view="large"] {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .image-card {

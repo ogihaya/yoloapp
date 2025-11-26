@@ -128,7 +128,15 @@
                         <h2>推論画像</h2>
                         <small>複数枚まとめて登録できます。</small>
                     </div>
-                    <span class="counter-badge" id="imageCounter">0枚</span>
+                    <div class="workspace-actions">
+                        <div class="view-toggle" role="group" aria-label="画像表示サイズ">
+                            <button type="button" data-view-size="small">小</button>
+                            <button type="button" data-view-size="medium" class="is-active">中</button>
+                            <button type="button" data-view-size="large">大</button>
+                        </div>
+                        <button class="btn-outline" type="button" id="bulkDownloadResults">結果を一括保存</button>
+                        <span class="counter-badge" id="imageCounter">0枚</span>
+                    </div>
                 </div>
                 <div class="dropzone" id="imageDropzone">
                     <input id="imageInput" type="file" accept="image/*" multiple hidden />
