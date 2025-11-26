@@ -495,15 +495,16 @@ button:disabled,
     margin-bottom: 0.35rem;
 }
 
-.class-editor textarea {
+.class-editor textarea,
+textarea.class-editor {
     width: 100%;
     min-height: 120px;
+    resize: none;
     border-radius: 0.7rem;
     border: 1px solid rgba(148, 163, 184, 0.3);
     background: rgba(7, 11, 24, 0.85);
     color: var(--text);
     padding: 0.7rem;
-    resize: vertical;
 }
 
 .class-preview {
