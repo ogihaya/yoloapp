@@ -33,6 +33,8 @@
         activeClassId: null,
         images: [],
         viewSize: "medium",
+        selectedImageIds: [],
+        selectedBox: null,
     };
 
     const classListEl = document.getElementById("classList");
@@ -57,6 +59,10 @@
     const panelToggle = document.querySelector("[data-panel-toggle]");
     const panelClose = document.querySelector("[data-panel-close]");
     const modalClose = document.querySelector("[data-modal-close]");
+    const selectAllBtn = document.getElementById("selectAllImages");
+    const clearSelectionBtn = document.getElementById("clearSelection");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedImages");
+    const selectionCounter = document.getElementById("selectionCounter");
 
     let toastTimer = null;
     let drawingContext = null;
@@ -165,6 +171,10 @@
         const target = state.images.find((img) => img.id === imageId);
         if (!target) return;
         state.images = state.images.filter((img) => img.id !== imageId);
+        state.selectedImageIds = state.selectedImageIds.filter((id) => id !== imageId);
+        if (state.selectedBox?.imageId === imageId) {
+            state.selectedBox = null;
+        }
         renderImages();
         showToast(`画像「${target.name}」を削除しました`);
     };
@@ -251,21 +261,41 @@
     const renderImages = () => {
         imageGrid.dataset.view = state.viewSize;
         imageGrid.innerHTML = "";
+        state.selectedImageIds = state.selectedImageIds.filter((id) =>
+            state.images.some((img) => img.id === id),
+        );
         if (!state.images.length) {
             const empty = document.createElement("div");
             empty.className = "empty-state";
             empty.textContent = "追加した画像がここに表示されます。";
             imageGrid.appendChild(empty);
+            updateSelectionControls();
             return;
         }
 
         state.images.forEach((image) => {
             const card = document.createElement("article");
             card.className = "image-card";
+            const isSelected = state.selectedImageIds.includes(image.id);
+            if (isSelected) card.classList.add("is-selected");
+            card.dataset.imageId = image.id;
 
             const meta = document.createElement("div");
             meta.className = "image-meta";
-            meta.innerHTML = `<span>${image.name}</span><span>${image.boxes.length} annotations</span>`;
+            const metaInfo = document.createElement("div");
+            metaInfo.className = "image-meta-info";
+            metaInfo.innerHTML = `<span>${image.name}</span><span>${image.boxes.length} annotations</span>`;
+            const selector = document.createElement("label");
+            selector.className = "image-select";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = isSelected;
+            checkbox.addEventListener("change", (evt) => toggleImageSelection(image.id, evt.target.checked));
+            selector.appendChild(checkbox);
+            const selectText = document.createElement("span");
+            selector.appendChild(selectText);
+            meta.appendChild(selector);
+            meta.appendChild(metaInfo);
             card.appendChild(meta);
 
             const stage = document.createElement("div");
@@ -322,6 +352,8 @@
 
             imageGrid.appendChild(card);
         });
+
+        updateSelectionControls();
     };
 
     const renderBoxes = (layer, image) => {
@@ -330,11 +362,16 @@
             const cls = getClassById(box.classId);
             const el = document.createElement("div");
             el.className = "annotation-box";
+            el.dataset.boxId = box.id;
+            el.dataset.imageId = image.id;
             el.style.left = `${box.x}%`;
             el.style.top = `${box.y}%`;
             el.style.width = `${box.w}%`;
             el.style.height = `${box.h}%`;
             el.style.borderColor = box.color;
+            if (state.selectedBox?.boxId === box.id && state.selectedBox?.imageId === image.id) {
+                el.classList.add("is-selected");
+            }
 
             const label = document.createElement("span");
             label.style.background = `${box.color}cc`;
@@ -345,12 +382,25 @@
             btn.type = "button";
             btn.ariaLabel = "削除";
             btn.textContent = "×";
+            btn.hidden = !(state.selectedBox?.boxId === box.id && state.selectedBox?.imageId === image.id);
+            btn.addEventListener("pointerdown", (event) => {
+                // Prevent starting a new drawing when clicking the delete button
+                event.stopPropagation();
+            });
             btn.addEventListener("click", (event) => {
                 event.stopPropagation();
                 image.boxes = image.boxes.filter((candidate) => candidate.id !== box.id);
+                if (state.selectedBox?.boxId === box.id && state.selectedBox?.imageId === image.id) {
+                    state.selectedBox = null;
+                }
                 renderImages();
             });
             el.appendChild(btn);
+
+            el.addEventListener("pointerdown", (event) => {
+                event.stopPropagation();
+                setSelectedBox(image.id, box.id);
+            });
 
             layer.appendChild(el);
         });
@@ -367,6 +417,11 @@
     };
 
     const startDrawing = (evt) => {
+        // Ignore interactions that originate from existing annotations (e.g., delete buttons)
+        if (evt.target !== evt.currentTarget) {
+            return;
+        }
+        clearSelectedBox();
         if (!state.classes.length) {
             showToast("クラスを追加してからアノテーションしてください");
             return;
@@ -473,6 +528,99 @@
         showToast(`${files.length}件のファイルを読み込みました`);
     };
 
+    const toggleImageSelection = (imageId, selected) => {
+        if (selected) {
+            if (!state.selectedImageIds.includes(imageId)) {
+                state.selectedImageIds.push(imageId);
+            }
+        } else {
+            state.selectedImageIds = state.selectedImageIds.filter((id) => id !== imageId);
+        }
+        updateSelectionControls();
+        refreshBoxSelection();
+    };
+
+    const selectAllImages = () => {
+        state.selectedImageIds = state.images.map((img) => img.id);
+        updateSelectionControls();
+        renderImages();
+    };
+
+    const clearImageSelection = () => {
+        if (!state.selectedImageIds.length) return;
+        state.selectedImageIds = [];
+        updateSelectionControls();
+        renderImages();
+    };
+
+    const deleteSelectedImages = () => {
+        if (!state.selectedImageIds.length) {
+            showToast("削除する画像を選択してください");
+            return;
+        }
+        if (!window.confirm(`選択した${state.selectedImageIds.length}枚の画像を削除しますか？`)) {
+            return;
+        }
+        const names = state.images
+            .filter((img) => state.selectedImageIds.includes(img.id))
+            .map((img) => img.name);
+        state.images = state.images.filter((img) => !state.selectedImageIds.includes(img.id));
+        state.selectedImageIds = [];
+        state.selectedBox = null;
+        renderImages();
+        showToast(`${names.length}枚の画像を削除しました`);
+    };
+
+    const updateSelectionControls = () => {
+        if (selectionCounter) {
+            selectionCounter.hidden = !state.selectedImageIds.length;
+            selectionCounter.textContent = `${state.selectedImageIds.length}枚選択中`;
+        }
+        if (deleteSelectedBtn) {
+            deleteSelectedBtn.disabled = !state.selectedImageIds.length;
+        }
+        if (clearSelectionBtn) {
+            clearSelectionBtn.disabled = !state.selectedImageIds.length;
+        }
+        if (selectAllBtn) {
+            selectAllBtn.disabled = !state.images.length || state.selectedImageIds.length === state.images.length;
+        }
+        refreshImageSelectionUI();
+    };
+
+    const setSelectedBox = (imageId, boxId) => {
+        state.selectedBox = { imageId, boxId };
+        refreshBoxSelection();
+    };
+
+    const clearSelectedBox = () => {
+        if (!state.selectedBox) return;
+        state.selectedBox = null;
+        refreshBoxSelection();
+    };
+
+    const refreshBoxSelection = () => {
+        document.querySelectorAll(".annotation-box").forEach((boxEl) => {
+            const isSelected =
+                state.selectedBox?.boxId === boxEl.dataset.boxId &&
+                state.selectedBox?.imageId === boxEl.dataset.imageId;
+            boxEl.classList.toggle("is-selected", Boolean(isSelected));
+            const deleteBtn = boxEl.querySelector("button");
+            if (deleteBtn) deleteBtn.hidden = !isSelected;
+        });
+    };
+
+    const refreshImageSelectionUI = () => {
+        const selectedSet = new Set(state.selectedImageIds);
+        document.querySelectorAll(".image-card").forEach((card) => {
+            const imageId = card.dataset.imageId;
+            const isSelected = selectedSet.has(imageId);
+            card.classList.toggle("is-selected", isSelected);
+            const checkbox = card.querySelector('.image-select input[type="checkbox"]');
+            if (checkbox) checkbox.checked = isSelected;
+        });
+    };
+
     dropzone.addEventListener("click", () => imageInput.click());
     dropzone.addEventListener("dragover", (evt) => {
         evt.preventDefault();
@@ -555,6 +703,16 @@
         resetClassFormState();
         refreshClassUI();
     });
+
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener("click", selectAllImages);
+    }
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener("click", clearImageSelection);
+    }
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener("click", deleteSelectedImages);
+    }
 
     exportBtn.addEventListener("click", () => {
         if (!state.images.length) {
@@ -660,6 +818,7 @@
     applyViewSize();
     renderClassList();
     updateActiveClassDisplay();
+    updateSelectionControls();
     if (isVal) {
         restoreTransferredClasses();
     }

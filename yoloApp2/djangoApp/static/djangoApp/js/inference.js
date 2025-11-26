@@ -20,6 +20,7 @@
         lastDevice: "",
         isRunning: false,
         viewSize: "medium",
+        selectedImageIds: [],
     };
 
     const INFERENCE_CLASS_STORAGE_KEY = "yoloApp.prefillInferenceClasses";
@@ -42,6 +43,11 @@
         classPreview: document.getElementById("classPreview"),
         bulkDownloadBtn: document.getElementById("bulkDownloadResults"),
         viewSizeButtons: document.querySelectorAll("[data-view-size]"),
+        selectAllBtn: document.getElementById("selectAllImages"),
+        clearSelectionBtn: document.getElementById("clearSelection"),
+        deleteSelectedBtn: document.getElementById("deleteSelectedImages"),
+        saveSelectedBtn: document.getElementById("saveSelectedResults"),
+        selectionCounter: document.getElementById("selectionCounter"),
     };
 
     let toastTimer = null;
@@ -64,6 +70,82 @@
         elements.toast.classList.add("is-visible");
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => elements.toast.classList.remove("is-visible"), 2800);
+    };
+
+    const isImageSelected = (imageId) => state.selectedImageIds.includes(imageId);
+
+    const refreshSelectionUI = () => {
+        const selectedSet = new Set(state.selectedImageIds);
+        elements.imageGrid.querySelectorAll(".image-card").forEach((card) => {
+            const imageId = card.dataset.imageId;
+            const isSelected = selectedSet.has(imageId);
+            card.classList.toggle("is-selected", isSelected);
+            const checkbox = card.querySelector('.image-select input[type="checkbox"]');
+            if (checkbox) checkbox.checked = isSelected;
+        });
+    };
+
+    const updateSelectionControls = () => {
+        const count = state.selectedImageIds.length;
+        if (elements.selectionCounter) {
+            elements.selectionCounter.hidden = !count;
+            elements.selectionCounter.textContent = `${count}件選択中`;
+        }
+        if (elements.deleteSelectedBtn) {
+            elements.deleteSelectedBtn.disabled = !count;
+        }
+        if (elements.clearSelectionBtn) {
+            elements.clearSelectionBtn.disabled = !count;
+        }
+        if (elements.selectAllBtn) {
+            elements.selectAllBtn.disabled = !state.images.length || count === state.images.length;
+        }
+        if (elements.saveSelectedBtn) {
+            const hasSavable = state.images.some(
+                (img) => isImageSelected(img.id) && Boolean(img.resultImage),
+            );
+            elements.saveSelectedBtn.disabled = !hasSavable;
+        }
+        refreshSelectionUI();
+    };
+
+    const toggleImageSelection = (imageId, selected) => {
+        if (selected) {
+            if (!state.selectedImageIds.includes(imageId)) {
+                state.selectedImageIds.push(imageId);
+            }
+        } else {
+            state.selectedImageIds = state.selectedImageIds.filter((id) => id !== imageId);
+        }
+        updateSelectionControls();
+    };
+
+    const selectAllImages = () => {
+        state.selectedImageIds = state.images.map((img) => img.id);
+        updateSelectionControls();
+        renderImageGrid();
+    };
+
+    const clearImageSelection = () => {
+        if (!state.selectedImageIds.length) return;
+        state.selectedImageIds = [];
+        updateSelectionControls();
+        renderImageGrid();
+    };
+
+    const deleteSelectedImages = () => {
+        if (!state.selectedImageIds.length) {
+            showToast("削除する画像を選択してください。", true);
+            return;
+        }
+        if (!window.confirm(`選択した${state.selectedImageIds.length}枚の画像を削除しますか？`)) {
+            return;
+        }
+        const count = state.selectedImageIds.length;
+        state.images = state.images.filter((img) => !state.selectedImageIds.includes(img.id));
+        state.selectedImageIds = [];
+        renderImageGrid();
+        showToast(`${count}枚の画像を削除しました。`);
     };
 
     const restorePrefilledClasses = () => {
@@ -209,8 +291,12 @@
     const renderImageGrid = () => {
         elements.imageGrid.dataset.view = state.viewSize;
         elements.imageGrid.innerHTML = "";
+        state.selectedImageIds = state.selectedImageIds.filter((id) =>
+            state.images.some((img) => img.id === id),
+        );
         elements.imageCounter.textContent = `${state.images.length}枚`;
         if (!state.images.length) {
+            updateSelectionControls();
             const placeholder = document.createElement("div");
             placeholder.className = "image-card";
             placeholder.innerHTML = '<p class="result-empty">画像を登録するとここに一覧が表示されます。</p>';
@@ -221,16 +307,33 @@
         state.images.forEach((image) => {
             const card = document.createElement("article");
             card.className = "image-card";
+            card.dataset.imageId = image.id;
+            const isSelected = isImageSelected(image.id);
+            if (isSelected) card.classList.add("is-selected");
 
             const header = document.createElement("header");
+            header.className = "image-card-header";
+            const headerLeft = document.createElement("div");
+            headerLeft.className = "image-header-left";
+            const selector = document.createElement("label");
+            selector.className = "image-select";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = isSelected;
+            checkbox.addEventListener("change", (evt) => toggleImageSelection(image.id, evt.target.checked));
+            selector.appendChild(checkbox);
+            const selectText = document.createElement("span");
+            selector.appendChild(selectText);
+            headerLeft.appendChild(selector);
             const title = document.createElement("div");
             title.innerHTML = `<strong>${image.name}</strong><br/><span style="color:var(--muted)">${formatBytes(
                 image.size,
             )}</span>`;
+            headerLeft.appendChild(title);
             const chip = document.createElement("span");
             chip.className = `status-chip ${getStatusClass(image.status)}`;
             chip.textContent = getStatusLabel(image);
-            header.appendChild(title);
+            header.appendChild(headerLeft);
             header.appendChild(chip);
             card.appendChild(header);
 
@@ -297,6 +400,7 @@
 
             elements.imageGrid.appendChild(card);
         });
+        updateSelectionControls();
     };
 
     const handleModelFiles = (files) => {
@@ -369,6 +473,7 @@
         state.images = [];
         state.logs = [];
         state.lastStats = null;
+        state.selectedImageIds = [];
         renderImageGrid();
         renderLogs();
         renderModelInfo();
@@ -379,6 +484,7 @@
         const target = state.images.find((img) => img.id === imageId);
         if (!target) return;
         state.images = state.images.filter((img) => img.id !== imageId);
+        state.selectedImageIds = state.selectedImageIds.filter((id) => id !== imageId);
         renderImageGrid();
         showToast(`画像「${target.name}」を削除しました`);
     };
@@ -579,8 +685,43 @@
         showToast(`${ready.length}件の結果画像を保存しました。`);
     };
 
+    const downloadSelectedResults = () => {
+        if (!state.selectedImageIds.length) {
+            showToast("保存する画像を選択してください。", true);
+            return;
+        }
+        const targets = state.images.filter(
+            (img) => state.selectedImageIds.includes(img.id) && img.resultImage,
+        );
+        if (!targets.length) {
+            showToast("選択した画像に保存できる結果がありません。", true);
+            return;
+        }
+        targets.forEach((image, index) => {
+            const link = document.createElement("a");
+            link.href = image.resultImage;
+            link.download = `result_selected_${index + 1}_${image.name || "image"}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        });
+        showToast(`${targets.length}件の選択結果を保存しました。`);
+    };
+
     if (elements.bulkDownloadBtn) {
         elements.bulkDownloadBtn.addEventListener("click", bulkDownloadResults);
+    }
+    if (elements.saveSelectedBtn) {
+        elements.saveSelectedBtn.addEventListener("click", downloadSelectedResults);
+    }
+    if (elements.selectAllBtn) {
+        elements.selectAllBtn.addEventListener("click", selectAllImages);
+    }
+    if (elements.clearSelectionBtn) {
+        elements.clearSelectionBtn.addEventListener("click", clearImageSelection);
+    }
+    if (elements.deleteSelectedBtn) {
+        elements.deleteSelectedBtn.addEventListener("click", deleteSelectedImages);
     }
 
     restorePrefilledClasses();

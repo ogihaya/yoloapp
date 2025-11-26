@@ -270,6 +270,13 @@ button:hover,
     margin: 0;
 }
 
+.bulk-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 .view-toggle {
     display: inline-flex;
     align-items: center;
@@ -349,6 +356,11 @@ button:hover,
     gap: 0.9rem;
 }
 
+.image-card.is-selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45);
+}
+
 .image-meta {
     display: flex;
     justify-content: space-between;
@@ -356,6 +368,26 @@ button:hover,
     align-items: center;
     font-size: 0.9rem;
     color: var(--muted);
+}
+
+.image-meta-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.image-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.image-select input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
 }
 
 .image-stage {
@@ -418,6 +450,7 @@ button:hover,
     color: var(--danger);
     box-shadow: none;
     padding: 0;
+    display: none;
 }
 
 .annotation-box button:hover {
@@ -427,6 +460,16 @@ button:hover,
 
 .annotation-box.is-drawing {
     border-style: dashed;
+}
+
+.annotation-box.is-selected {
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.5);
+}
+
+.annotation-box.is-selected button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .box-list {
@@ -452,6 +495,11 @@ button:hover,
     justify-content: flex-end;
     gap: 0.8rem;
     flex-wrap: wrap;
+}
+
+.selection-counter {
+    color: var(--muted);
+    font-size: 0.9rem;
 }
 
 .modal {

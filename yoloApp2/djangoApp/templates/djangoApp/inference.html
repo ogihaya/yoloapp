@@ -134,6 +134,17 @@
                             <button type="button" data-view-size="medium" class="is-active">中</button>
                             <button type="button" data-view-size="large">大</button>
                         </div>
+                        <div class="bulk-actions">
+                            <button class="btn-outline" type="button" id="selectAllImages">すべて選択</button>
+                            <button class="btn-outline" type="button" id="clearSelection">選択解除</button>
+                            <button class="btn-outline" type="button" id="saveSelectedResults" disabled>
+                                選択結果を保存
+                            </button>
+                            <button class="btn-danger" type="button" id="deleteSelectedImages" disabled>
+                                選択した画像を削除
+                            </button>
+                            <span class="selection-counter" id="selectionCounter" hidden>0件選択中</span>
+                        </div>
                         <button class="btn-outline" type="button" id="bulkDownloadResults">結果を一括保存</button>
                         <span class="counter-badge" id="imageCounter">0枚</span>
                     </div>

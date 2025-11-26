@@ -47,10 +47,16 @@
                     <button class="btn-outline panel-toggle" type="button" data-panel-toggle>
                         クラスパネルを表示
                     </button>
-                    <div class="view-toggle" role="group" aria-label="画像表示サイズ">
-                        <button type="button" data-view-size="small">小</button>
-                        <button type="button" data-view-size="medium" class="is-active">中</button>
-                        <button type="button" data-view-size="large">大</button>
+                    <div class="bulk-actions">
+                        <div class="view-toggle" role="group" aria-label="画像表示サイズ">
+                            <button type="button" data-view-size="small">小</button>
+                            <button type="button" data-view-size="medium" class="is-active">中</button>
+                            <button type="button" data-view-size="large">大</button>
+                        </div>
+                        <button class="btn-outline" type="button" id="selectAllImages">すべて選択</button>
+                        <button class="btn-outline" type="button" id="clearSelection">選択解除</button>
+                        <button class="btn-danger" type="button" id="deleteSelectedImages" disabled>選択した画像を削除</button>
+                        <span class="selection-counter" id="selectionCounter" hidden>0枚選択中</span>
                     </div>
                 </div>
                 <section class="dropzone" id="dropzone">
