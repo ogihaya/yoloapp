@@ -35,6 +35,7 @@
         viewSize: "medium",
         selectedImageIds: [],
         selectedBox: null,
+        hasExported: false,
     };
 
     const classListEl = document.getElementById("classList");
@@ -115,6 +116,9 @@
         activeClassId: state.activeClassId,
         timestamp: Date.now(),
     });
+
+    const confirmIfNotExported = () =>
+        state.hasExported || window.confirm("エクスポートしていませんが大丈夫ですか？");
 
     const restoreTransferredClasses = () => {
         const raw = sessionStorage.getItem(STORAGE_KEYS.valPrefill);
@@ -399,6 +403,7 @@
 
             el.addEventListener("pointerdown", (event) => {
                 event.stopPropagation();
+                if (!isNearBoxBorder(event, el)) return;
                 setSelectedBox(image.id, box.id);
             });
 
@@ -414,6 +419,13 @@
             width: rect.width,
             height: rect.height,
         };
+    };
+
+    const isNearBoxBorder = (evt, element, threshold = 6) => {
+        const rect = element.getBoundingClientRect();
+        const x = evt.clientX - rect.left;
+        const y = evt.clientY - rect.top;
+        return x <= threshold || y <= threshold || x >= rect.width - threshold || y >= rect.height - threshold;
     };
 
     const startDrawing = (evt) => {
@@ -683,10 +695,10 @@
                     }
                 });
             });
+            resetClassFormState();
             refreshClassUI();
             renderImages();
             showToast(`クラス「${label}」を更新しました`);
-            resetClassFormState();
             return;
         }
 
@@ -737,6 +749,9 @@
                 showToast("次のステップに進む前にクラスを追加してください");
                 return;
             }
+            if (!confirmIfNotExported()) {
+                return;
+            }
             sessionStorage.setItem(STORAGE_KEYS.valPrefill, JSON.stringify(buildClassTransferPayload()));
             window.location.href = config.nextUrl;
         });
@@ -755,6 +770,9 @@
         goInferenceBtn.addEventListener("click", () => {
             if (!state.classes.length) {
                 showToast("推論画面へ移動する前にクラスを設定してください");
+                return;
+            }
+            if (!confirmIfNotExported()) {
                 return;
             }
             sessionStorage.setItem(STORAGE_KEYS.inferencePrefill, JSON.stringify(buildClassTransferPayload()));
@@ -799,6 +817,7 @@
             link.click();
             link.remove();
             setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+            state.hasExported = true;
             showToast(`${config.exportName || "エクスポート"}をダウンロードしました`);
         } catch (error) {
             console.error(error);
