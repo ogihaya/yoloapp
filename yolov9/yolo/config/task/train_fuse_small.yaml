@@ -1,0 +1,60 @@
+task: train
+
+epoch: 300 # 長めの学習時間
+
+data:
+  batch_size: 2 # 大きな画像サイズ用に小さく設定
+  image_size: [1280, 1280] # 初期は小さめの画像サイズ
+  cpu_num: ${cpu_num}
+  shuffle: True
+  pin_memory: True
+  multi_scale: True # マルチスケール学習を有効化
+  scale_range: [0.8, 1.2] # スケールの範囲
+
+  # 小物体検出に特化したデータ拡張
+  data_augment:
+    # Mosaic: 1  # 小物体には不利なので無効化
+    # MixUp: 0.5  # 小物体には不利なので無効化
+    HorizontalFlip: 0.5
+    VerticalFlip: 0.3 # 縦反転を追加
+    RandomBrightness:
+      prob: 0.3 # 確率を下げる
+      factor_range: [0.95, 1.05] # 範囲を狭める
+    RandomContrast:
+      prob: 0.3
+      factor_range: [0.95, 1.05]
+
+# 小物体検出に特化した最適化設定
+optimizer:
+  type: AdamW
+  args:
+    lr: 0.001 # 高い学習率
+    weight_decay: 0.01
+
+# 小物体検出に特化した損失関数
+loss:
+  objective:
+    BCELoss: 2.0 # 分類損失を重視
+    BoxLoss: 3.0 # 位置検出を重視
+    DFLoss: 2.0 # Distribution Focal Loss
+  aux: 0.25
+  small_object_weight: 2.0 # 小物体の重みを増加
+
+# 学習率スケジューラー
+scheduler:
+  type: CosineAnnealingLR
+  warmup:
+    epochs: 10 # ウォームアップ期間を延長
+  args:
+    T_max: 300 # エポック数と一致
+    eta_min: 0.00001
+
+# 小物体検出用のアンカー設定
+anchor:
+  sizes: [[4, 8], [8, 16], [16, 32]] # 小さなアンカーを追加
+  ratios: [0.5, 1.0, 2.0] # 縦長・横長の比率
+
+# EMA設定
+ema:
+  enable: true
+  decay: 0.9999

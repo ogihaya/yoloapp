@@ -1,0 +1,14 @@
+task: validation
+
+data:
+  batch_size: 32
+  image_size: ${image_size}
+  cpu_num: ${cpu_num}
+  shuffle: False
+  pin_memory: True
+  data_augment: {}
+  dynamic_shape: False
+nms:
+  min_confidence: 0.001  # 0.0001から少し上げる（検出感度を調整）
+  min_iou: 0.5  # 0.7から0.5に下げる（NMSを緩める）
+  max_bbox: 1000

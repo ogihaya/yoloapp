@@ -1,0 +1,12 @@
+task: inference
+
+fast_inference: # onnx, trt, deploy or Empty
+data:
+  source: dataset/images/inference/
+  image_size: [1024, 1024]
+  data_augment: {}
+nms:
+  min_confidence: 0.25 # 極めて低い閾値でテスト
+  min_iou: 0.45 # IoU閾値を緩める
+  max_bbox: 300 # 検出数を増やす
+save_predict: True

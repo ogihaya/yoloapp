@@ -1,0 +1,13 @@
+path: dataset
+train: train
+validation: val
+test: test
+
+class_num: 3
+class_list: ['Paper', 'Rock', 'Scissors']
+
+# 画像の設定
+# general.yamlのimage_sizeが優先されます（32の倍数必須）
+img_size: [512, 512]
+
+num_workers: 6 # macOS/MPS最適化

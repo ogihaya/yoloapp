@@ -1,0 +1,15 @@
+device: cpu
+cpu_num: 2 # macOS/MPS最適化
+
+image_size: [1024, 1024] # 実画像3509x2481に対応（32の倍数必須）
+
+out_path: runs
+exist_ok: True
+
+lucky_number: 10
+use_wandb: True
+use_tensorboard: False
+
+weight: True # 事前学習重みを使用（少ないデータには必須）
+
+model_name: best
